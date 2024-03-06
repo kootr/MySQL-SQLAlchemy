@@ -1,6 +1,6 @@
-from sqlalchemy import create_engine, Column, Integer, String, select
+from sqlalchemy import create_engine, Column, Integer, String, select, MetaData
 from sqlalchemy.engine.result import Result
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import registry, sessionmaker, declarative_base
 
 # データベース設定
 DATABASE = 'test_db'
@@ -40,6 +40,7 @@ def get_by_id(journey_id: str) -> Journey | None:
     """Get Journey object by id."""
     engine = create_engine(DATABASE_URL)
     Session = sessionmaker(bind=engine)
+
     session = Session()
     statement = select(JourneySchema).where(
         journey_table.c.journey_id == journey_id)
@@ -56,14 +57,33 @@ def get_by_id(journey_id: str) -> Journey | None:
         return None
 
 
-# metadata = MetaData()
-# mapper_registry = registry(metadata=metadata)
+def get_by_id_mapper(journey_id: str) -> Journey | None:
+    # メタデータとレジストリの設定
+    metadata = MetaData()
+    mapper_registry = registry(metadata=metadata)
 
-# mapper_registry.map_imperatively(
-#     Journey,
-#     journey_table,
-# )
+    # クラスとテーブルのマッピング
+    mapper_registry.map_imperatively(Journey, journey_table)
 
-test = get_by_id('9fd3fa6c-01ca-485a-a73f-edc436bbddeb')
+    # エンジン、セッションファクトリの設定
+    engine = create_engine(DATABASE_URL)
+    Session = sessionmaker(bind=engine)
 
-print(test.__dict__)
+    with Session() as session:
+        statement = select(Journey).where(
+            journey_table.c.journey_id == journey_id)
+        result = session.execute(statement)
+        journey = result.scalars().first()
+        return journey
+
+
+def main():
+    journey1 = get_by_id('9fd3fa6c-01ca-485a-a73f-edc436bbddeb')
+    print(f"get_by_JourneySchema {journey1.__dict__}")
+
+    journey2 = get_by_id_mapper('9fd3fa6c-01ca-485a-a73f-edc436bbddeb')
+    print(f"get_by_JourneyMapper {journey2.__dict__}")
+
+
+if __name__ == "__main__":
+    main()
